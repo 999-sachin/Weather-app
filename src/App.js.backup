@@ -1,0 +1,193 @@
+import React, { useState, useEffect } from "react";
+import "./App.css";
+
+export default function WeatherApp() {
+  const [city, setCity] = useState("");
+  const [weather, setWeather] = useState(null);
+  const [forecast, setForecast] = useState(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // IMPORTANT: You need to get a real API key from OpenWeatherMap
+  // 1. Go to: https://openweathermap.org/
+  // 2. Sign up for a free account
+  // 3. Get your API key from the dashboard
+  // 4. Replace the key below with your actual API key
+  const API_KEY = "YOUR_REAL_API_KEY_HERE"; // Replace with your actual API key from OpenWeatherMap
+
+  const fetchWeather = async () => {
+    if (!city) {
+      setError("Please enter a city name");
+      setWeather(null);
+      setForecast(null);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      // Fetch current weather
+      const weatherRes = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric`
+      );
+      const weatherData = await weatherRes.json();
+
+      if (weatherData.cod === 200) {
+        setWeather(weatherData);
+        
+        // Fetch 5-day forecast
+        const forecastRes = await fetch(
+          `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${API_KEY}&units=metric`
+        );
+        const forecastData = await forecastRes.json();
+        
+        if (forecastData.cod === "200") {
+          setForecast(forecastData);
+        }
+      } else {
+        setWeather(null);
+        setForecast(null);
+        setError(weatherData.message || "City not found");
+      }
+    } catch (err) {
+      console.error("Error fetching weather:", err);
+      setWeather(null);
+      setForecast(null);
+      setError("Error fetching weather data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") fetchWeather();
+  };
+
+  const getWeatherIcon = (weatherCode) => {
+    const weatherIcons = {
+      "01d": "☀️",
+      "01n": "🌙",
+      "02d": "⛅",
+      "02n": "☁️",
+      "03d": "☁️",
+      "03n": "☁️",
+      "04d": "☁️",
+      "04n": "☁️",
+      "09d": "🌧️",
+      "09n": "🌧️",
+      "10d": "🌦️",
+      "10n": "🌧️",
+      "11d": "⛈️",
+      "11n": "⛈️",
+      "13d": "❄️",
+      "13n": "❄️",
+      "50d": "🌫️",
+      "50n": "🌫️"
+    };
+    return weatherIcons[weatherCode] || "🌤️";
+  };
+
+  const formatDate = (timestamp) => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+  };
+
+  return (
+    <div className="weather-app">
+      <div className="container">
+        <h1 className="app-title">🌤️ Weather App</h1>
+        
+        <div className="search-container">
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder="Enter city name..."
+            className="search-input"
+          />
+          <button
+            onClick={fetchWeather}
+            disabled={loading}
+            className="search-button"
+          >
+            {loading ? "Searching..." : "Search"}
+          </button>
+        </div>
+
+        {error && <p className="error-message">{error}</p>}
+
+        {weather && (
+          <div className="weather-container">
+            <div className="current-weather">
+              <h2 className="city-name">
+                {weather.name}, {weather.sys.country}
+              </h2>
+              <div className="weather-main">
+                <div className="weather-icon">
+                  {getWeatherIcon(weather.weather[0].icon)}
+                </div>
+                <div className="weather-info">
+                  <p className="temperature">{Math.round(weather.main.temp)}°C</p>
+                  <p className="description">{weather.weather[0].description}</p>
+                  <p className="feels-like">Feels like {Math.round(weather.main.feels_like)}°C</p>
+                </div>
+              </div>
+              
+              <div className="weather-details">
+                <div className="detail-item">
+                  <span className="detail-label">Humidity</span>
+                  <span className="detail-value">{weather.main.humidity}%</span>
+                </div>
+                <div className="detail-item">
+                  <span className="detail-label">Wind Speed</span>
+                  <span className="detail-value">{weather.wind.speed} m/s</span>
+                </div>
+                <div className="detail-item">
+                  <span className="detail-label">Pressure</span>
+                  <span className="detail-value">{weather.main.pressure} hPa</span>
+                </div>
+                <div className="detail-item">
+                  <span className="detail-label">Visibility</span>
+                  <span className="detail-value">{(weather.visibility / 1000).toFixed(1)} km</span>
+                </div>
+              </div>
+            </div>
+
+            {forecast && (
+              <div className="forecast-container">
+                <h3>5-Day Forecast</h3>
+                <div className="forecast-list">
+                  {forecast.list.filter((item, index) => index % 8 === 0).slice(0, 5).map((item, index) => (
+                    <div key={index} className="forecast-item">
+                      <p className="forecast-date">{formatDate(item.dt)}</p>
+                      <div className="forecast-icon">
+                        {getWeatherIcon(item.weather[0].icon)}
+                      </div>
+                      <p className="forecast-temp">{Math.round(item.main.temp)}°C</p>
+                      <p className="forecast-desc">{item.weather[0].description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
